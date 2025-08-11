@@ -9,7 +9,9 @@ import {
   type Alert, type InsertAlert,
   type ResistanceSummary, type ResistanceTrend, type AntibioticEffectiveness, 
   type FilterState,
+  resources,
 } from "@shared/schema";
+import { desc } from "drizzle-orm";
 import { IStorage } from "./storage";
 import { db } from "./db";
 
@@ -404,17 +406,9 @@ export class DatabaseStorage implements IStorage {
   
   async getResources(): Promise<Resource[]> {
     try {
-      const result = await db.query('SELECT * FROM resources ORDER BY published_at DESC');
+      const result = await db.select().from(resources).orderBy(desc(resources.publishedAt));
       
-      return result.rows.map(row => ({
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        url: row.url,
-        type: row.type,
-        publishedAt: row.published_at,
-        authoredBy: row.authored_by
-      }));
+      return result;
     } catch (error) {
       console.error('Error getting resources:', error);
       return [];
