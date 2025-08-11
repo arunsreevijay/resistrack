@@ -854,4 +854,4 @@ import { DatabaseStorage } from './database-storage';
 // For production, use DatabaseStorage
 export const storage = process.env.NODE_ENV === 'test' 
   ? new MemStorage()
-  : new DbStorage();
+  : new DatabaseStorage();

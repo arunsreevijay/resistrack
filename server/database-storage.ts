@@ -9,21 +9,17 @@ import {
   type Alert, type InsertAlert,
   type ResistanceSummary, type ResistanceTrend, type AntibioticEffectiveness, 
   type FilterState,
-  resources,
+  users, bacteria, antibiotics, regions, facilities, resistanceData, resources, alerts,
 } from "@shared/schema";
-import { desc } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { IStorage } from "./storage";
 import { db } from "./db";
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
     try {
-      const result = await db.query(
-        'SELECT * FROM users WHERE id = $1 LIMIT 1', 
-        [id]
-      );
-      
-      return result.rows.length > 0 ? result.rows[0] : undefined;
+      const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
+      return result[0] || undefined;
     } catch (error) {
       console.error('Error getting user:', error);
       return undefined;
@@ -32,12 +28,8 @@ export class DatabaseStorage implements IStorage {
   
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const result = await db.query(
-        'SELECT * FROM users WHERE username = $1 LIMIT 1', 
-        [username]
-      );
-      
-      return result.rows.length > 0 ? result.rows[0] : undefined;
+      const result = await db.select().from(users).where(eq(users.username, username)).limit(1);
+      return result[0] || undefined;
     } catch (error) {
       console.error('Error getting user by username:', error);
       return undefined;
@@ -46,12 +38,8 @@ export class DatabaseStorage implements IStorage {
   
   async createUser(user: InsertUser): Promise<User> {
     try {
-      const result = await db.query(
-        'INSERT INTO users (username, password_hash, email, role) VALUES ($1, $2, $3, $4) RETURNING *',
-        [user.username, user.password, user.email, user.role]
-      );
-      
-      return result.rows[0];
+      const result = await db.insert(users).values(user).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -60,14 +48,8 @@ export class DatabaseStorage implements IStorage {
   
   async getBacteria(): Promise<Bacteria[]> {
     try {
-      const result = await db.query('SELECT * FROM bacteria ORDER BY name');
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        scientificName: row.scientific_name,
-        description: row.description
-      }));
+      const result = await db.select().from(bacteria);
+      return result;
     } catch (error) {
       console.error('Error getting bacteria:', error);
       return [];
@@ -76,22 +58,8 @@ export class DatabaseStorage implements IStorage {
   
   async getBacteriaById(id: number): Promise<Bacteria | undefined> {
     try {
-      const result = await db.query(
-        'SELECT * FROM bacteria WHERE id = $1 LIMIT 1', 
-        [id]
-      );
-      
-      if (result.rows.length === 0) {
-        return undefined;
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        scientificName: row.scientific_name,
-        description: row.description
-      };
+      const result = await db.select().from(bacteria).where(eq(bacteria.id, id)).limit(1);
+      return result[0] || undefined;
     } catch (error) {
       console.error('Error getting bacterium by id:', error);
       return undefined;
@@ -100,18 +68,8 @@ export class DatabaseStorage implements IStorage {
   
   async createBacteria(bacterium: InsertBacteria): Promise<Bacteria> {
     try {
-      const result = await db.query(
-        'INSERT INTO bacteria (name, scientific_name, description) VALUES ($1, $2, $3) RETURNING *',
-        [bacterium.name, bacterium.scientificName, bacterium.description]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        scientificName: row.scientific_name,
-        description: row.description
-      };
+      const result = await db.insert(bacteria).values(bacterium).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating bacterium:', error);
       throw error;
@@ -120,14 +78,8 @@ export class DatabaseStorage implements IStorage {
   
   async getAntibiotics(): Promise<Antibiotic[]> {
     try {
-      const result = await db.query('SELECT * FROM antibiotics ORDER BY name');
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        class: row.class,
-        description: row.description
-      }));
+      const result = await db.select().from(antibiotics);
+      return result;
     } catch (error) {
       console.error('Error getting antibiotics:', error);
       return [];
@@ -136,22 +88,8 @@ export class DatabaseStorage implements IStorage {
   
   async getAntibioticById(id: number): Promise<Antibiotic | undefined> {
     try {
-      const result = await db.query(
-        'SELECT * FROM antibiotics WHERE id = $1 LIMIT 1', 
-        [id]
-      );
-      
-      if (result.rows.length === 0) {
-        return undefined;
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        class: row.class,
-        description: row.description
-      };
+      const result = await db.select().from(antibiotics).where(eq(antibiotics.id, id)).limit(1);
+      return result[0] || undefined;
     } catch (error) {
       console.error('Error getting antibiotic by id:', error);
       return undefined;
@@ -160,18 +98,8 @@ export class DatabaseStorage implements IStorage {
   
   async createAntibiotic(antibiotic: InsertAntibiotic): Promise<Antibiotic> {
     try {
-      const result = await db.query(
-        'INSERT INTO antibiotics (name, class, description) VALUES ($1, $2, $3) RETURNING *',
-        [antibiotic.name, antibiotic.class, antibiotic.description]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        class: row.class,
-        description: row.description
-      };
+      const result = await db.insert(antibiotics).values(antibiotic).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating antibiotic:', error);
       throw error;
@@ -180,15 +108,8 @@ export class DatabaseStorage implements IStorage {
   
   async getRegions(): Promise<Region[]> {
     try {
-      const result = await db.query('SELECT * FROM regions ORDER BY name');
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        code: row.code,
-        parentId: row.parent_id,
-        population: row.population
-      }));
+      const result = await db.select().from(regions);
+      return result;
     } catch (error) {
       console.error('Error getting regions:', error);
       return [];
@@ -197,23 +118,8 @@ export class DatabaseStorage implements IStorage {
   
   async getRegionById(id: number): Promise<Region | undefined> {
     try {
-      const result = await db.query(
-        'SELECT * FROM regions WHERE id = $1 LIMIT 1', 
-        [id]
-      );
-      
-      if (result.rows.length === 0) {
-        return undefined;
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        code: row.code,
-        parentId: row.parent_id,
-        population: row.population
-      };
+      const result = await db.select().from(regions).where(eq(regions.id, id)).limit(1);
+      return result[0] || undefined;
     } catch (error) {
       console.error('Error getting region by id:', error);
       return undefined;
@@ -222,19 +128,8 @@ export class DatabaseStorage implements IStorage {
   
   async createRegion(region: InsertRegion): Promise<Region> {
     try {
-      const result = await db.query(
-        'INSERT INTO regions (name, code, parent_id, population) VALUES ($1, $2, $3, $4) RETURNING *',
-        [region.name, region.code, region.parentId, region.population]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        code: row.code,
-        parentId: row.parent_id,
-        population: row.population
-      };
+      const result = await db.insert(regions).values(region).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating region:', error);
       throw error;
@@ -243,15 +138,8 @@ export class DatabaseStorage implements IStorage {
   
   async getFacilities(): Promise<Facility[]> {
     try {
-      const result = await db.query('SELECT * FROM facilities ORDER BY name');
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        regionId: row.region_id,
-        location: row.location
-      }));
+      const result = await db.select().from(facilities);
+      return result;
     } catch (error) {
       console.error('Error getting facilities:', error);
       return [];
@@ -260,18 +148,8 @@ export class DatabaseStorage implements IStorage {
   
   async getFacilitiesByRegion(regionId: number): Promise<Facility[]> {
     try {
-      const result = await db.query(
-        'SELECT * FROM facilities WHERE region_id = $1 ORDER BY name',
-        [regionId]
-      );
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        regionId: row.region_id,
-        location: row.location
-      }));
+      const result = await db.select().from(facilities).where(eq(facilities.regionId, regionId));
+      return result;
     } catch (error) {
       console.error('Error getting facilities by region:', error);
       return [];
@@ -280,19 +158,8 @@ export class DatabaseStorage implements IStorage {
   
   async createFacility(facility: InsertFacility): Promise<Facility> {
     try {
-      const result = await db.query(
-        'INSERT INTO facilities (name, type, region_id, location) VALUES ($1, $2, $3, $4) RETURNING *',
-        [facility.name, facility.type, facility.regionId, facility.location]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        name: row.name,
-        type: row.type,
-        regionId: row.region_id,
-        location: row.location
-      };
+      const result = await db.insert(facilities).values(facility).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating facility:', error);
       throw error;
@@ -301,52 +168,37 @@ export class DatabaseStorage implements IStorage {
   
   async getResistanceData(filters?: Partial<FilterState>): Promise<ResistanceData[]> {
     try {
-      let query = 'SELECT * FROM resistance_data';
-      const params: any[] = [];
+      let query = db.select().from(resistanceData);
       
       if (filters) {
-        const conditions: string[] = [];
+        const conditions = [];
         
         if (filters.bacteriaId) {
-          conditions.push(`bacteria_id = $${params.length + 1}`);
-          params.push(filters.bacteriaId);
+          conditions.push(eq(resistanceData.bacteriaId, filters.bacteriaId));
         }
         
         if (filters.antibioticId) {
-          conditions.push(`antibiotic_id = $${params.length + 1}`);
-          params.push(filters.antibioticId);
+          conditions.push(eq(resistanceData.antibioticId, filters.antibioticId));
         }
         
         if (filters.regionId) {
-          conditions.push(`region_id = $${params.length + 1}`);
-          params.push(filters.regionId);
+          conditions.push(eq(resistanceData.regionId, filters.regionId));
         }
         
         if (filters.fromDate && filters.toDate) {
-          conditions.push(`sample_date >= $${params.length + 1} AND sample_date <= $${params.length + 2}`);
-          params.push(filters.fromDate);
-          params.push(filters.toDate);
+          conditions.push(and(
+            gte(resistanceData.sampleDate, filters.fromDate),
+            lte(resistanceData.sampleDate, filters.toDate)
+          ));
         }
         
         if (conditions.length > 0) {
-          query += ' WHERE ' + conditions.join(' AND ');
+          query = query.where(and(...conditions));
         }
       }
       
-      query += ' ORDER BY sample_date DESC';
-      
-      const result = await db.query(query, params);
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        bacteriaId: row.bacteria_id,
-        antibioticId: row.antibiotic_id,
-        regionId: row.region_id,
-        facilityId: row.facility_id,
-        sampleDate: row.sample_date,
-        totalSamples: row.total_samples,
-        resistantSamples: row.resistant_samples
-      }));
+      const result = await query.orderBy(desc(resistanceData.sampleDate));
+      return result;
     } catch (error) {
       console.error('Error getting resistance data:', error);
       return [];
@@ -355,32 +207,8 @@ export class DatabaseStorage implements IStorage {
   
   async createResistanceData(data: InsertResistanceData): Promise<ResistanceData> {
     try {
-      const result = await db.query(
-        `INSERT INTO resistance_data 
-         (bacteria_id, antibiotic_id, region_id, facility_id, sample_date, total_samples, resistant_samples) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [
-          data.bacteriaId, 
-          data.antibioticId, 
-          data.regionId, 
-          data.facilityId, 
-          data.sampleDate,
-          data.totalSamples, 
-          data.resistantSamples
-        ]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        bacteriaId: row.bacteria_id,
-        antibioticId: row.antibiotic_id,
-        regionId: row.region_id,
-        facilityId: row.facility_id,
-        sampleDate: row.sample_date,
-        totalSamples: row.total_samples,
-        resistantSamples: row.resistant_samples
-      };
+      const result = await db.insert(resistanceData).values(data).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating resistance data:', error);
       throw error;
@@ -389,14 +217,7 @@ export class DatabaseStorage implements IStorage {
   
   async bulkCreateResistanceData(dataArray: InsertResistanceData[]): Promise<ResistanceData[]> {
     try {
-      // This would be better with a batch insert, but for simplicity we'll use multiple inserts
-      const result: ResistanceData[] = [];
-      
-      for (const data of dataArray) {
-        const createdData = await this.createResistanceData(data);
-        result.push(createdData);
-      }
-      
+      const result = await db.insert(resistanceData).values(dataArray).returning();
       return result;
     } catch (error) {
       console.error('Error bulk creating resistance data:', error);
@@ -407,7 +228,6 @@ export class DatabaseStorage implements IStorage {
   async getResources(): Promise<Resource[]> {
     try {
       const result = await db.select().from(resources).orderBy(desc(resources.publishedAt));
-      
       return result;
     } catch (error) {
       console.error('Error getting resources:', error);
@@ -417,25 +237,8 @@ export class DatabaseStorage implements IStorage {
   
   async getResourceById(id: number): Promise<Resource | undefined> {
     try {
-      const result = await db.query(
-        'SELECT * FROM resources WHERE id = $1 LIMIT 1', 
-        [id]
-      );
-      
-      if (result.rows.length === 0) {
-        return undefined;
-      }
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        url: row.url,
-        type: row.type,
-        publishedAt: row.published_at,
-        authoredBy: row.authored_by
-      };
+      const result = await db.select().from(resources).where(eq(resources.id, id)).limit(1);
+      return result[0] || undefined;
     } catch (error) {
       console.error('Error getting resource by id:', error);
       return undefined;
@@ -444,30 +247,8 @@ export class DatabaseStorage implements IStorage {
   
   async createResource(resource: InsertResource): Promise<Resource> {
     try {
-      const result = await db.query(
-        `INSERT INTO resources 
-         (title, description, url, type, published_at, authored_by) 
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [
-          resource.title, 
-          resource.description, 
-          resource.url, 
-          resource.type, 
-          resource.publishedAt,
-          resource.authoredBy
-        ]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        url: row.url,
-        type: row.type,
-        publishedAt: row.published_at,
-        authoredBy: row.authored_by
-      };
+      const result = await db.insert(resources).values(resource).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating resource:', error);
       throw error;
@@ -476,26 +257,14 @@ export class DatabaseStorage implements IStorage {
   
   async getAlerts(active?: boolean): Promise<Alert[]> {
     try {
-      let query = 'SELECT * FROM alerts';
-      const params: any[] = [];
+      let query = db.select().from(alerts);
       
       if (active !== undefined) {
-        query += ' WHERE active = $1';
-        params.push(active);
+        query = query.where(eq(alerts.active, active));
       }
       
-      query += ' ORDER BY created_at DESC';
-      
-      const result = await db.query(query, params);
-      
-      return result.rows.map(row => ({
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        severity: row.severity,
-        active: row.active,
-        createdAt: row.created_at
-      }));
+      const result = await query.orderBy(desc(alerts.createdAt));
+      return result;
     } catch (error) {
       console.error('Error getting alerts:', error);
       return [];
@@ -504,22 +273,8 @@ export class DatabaseStorage implements IStorage {
   
   async createAlert(alert: InsertAlert): Promise<Alert> {
     try {
-      const result = await db.query(
-        `INSERT INTO alerts 
-         (title, description, severity, active) 
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [alert.title, alert.description, alert.severity, alert.active]
-      );
-      
-      const row = result.rows[0];
-      return {
-        id: row.id,
-        title: row.title,
-        description: row.description,
-        severity: row.severity,
-        active: row.active,
-        createdAt: row.created_at
-      };
+      const result = await db.insert(alerts).values(alert).returning();
+      return result[0];
     } catch (error) {
       console.error('Error creating alert:', error);
       throw error;
@@ -528,65 +283,29 @@ export class DatabaseStorage implements IStorage {
   
   async getResistanceSummary(filters?: Partial<FilterState>): Promise<ResistanceSummary> {
     try {
-      let query = `
-        SELECT 
-          SUM(total_samples) as total_samples,
-          SUM(resistant_samples) as resistant_samples,
-          COUNT(DISTINCT facility_id) as participating_facilities
-        FROM resistance_data
-      `;
+      const data = await this.getResistanceData(filters);
       
-      const params: any[] = [];
+      let totalSamples = 0;
+      let resistantIsolates = 0;
       
-      if (filters) {
-        const conditions: string[] = [];
-        
-        if (filters.bacteriaId) {
-          conditions.push(`bacteria_id = $${params.length + 1}`);
-          params.push(filters.bacteriaId);
-        }
-        
-        if (filters.antibioticId) {
-          conditions.push(`antibiotic_id = $${params.length + 1}`);
-          params.push(filters.antibioticId);
-        }
-        
-        if (filters.regionId) {
-          conditions.push(`region_id = $${params.length + 1}`);
-          params.push(filters.regionId);
-        }
-        
-        if (filters.fromDate && filters.toDate) {
-          conditions.push(`sample_date >= $${params.length + 1} AND sample_date <= $${params.length + 2}`);
-          params.push(filters.fromDate);
-          params.push(filters.toDate);
-        }
-        
-        if (conditions.length > 0) {
-          query += ' WHERE ' + conditions.join(' AND ');
+      // Count distinct facilities
+      const distinctFacilities = new Set<number>();
+      
+      for (const item of data) {
+        totalSamples += item.totalSamples;
+        resistantIsolates += item.resistantSamples;
+        if (item.facilityId) {
+          distinctFacilities.add(item.facilityId);
         }
       }
       
-      const result = await db.query(query, params);
-      
-      if (!result.rows[0] || result.rows[0].total_samples === null) {
-        return {
-          totalSamples: 0,
-          resistantIsolates: 0,
-          resistanceRate: 0,
-          participatingFacilities: 0
-        };
-      }
-      
-      const row = result.rows[0];
-      const totalSamples = parseInt(row.total_samples);
-      const resistantIsolates = parseInt(row.resistant_samples);
-      
+      const resistanceRate = totalSamples > 0 ? resistantIsolates / totalSamples : 0;
+
       return {
         totalSamples,
         resistantIsolates,
-        resistanceRate: totalSamples > 0 ? resistantIsolates / totalSamples : 0,
-        participatingFacilities: parseInt(row.participating_facilities)
+        resistanceRate,
+        participatingFacilities: distinctFacilities.size
       };
     } catch (error) {
       console.error('Error getting resistance summary:', error);
@@ -601,65 +320,56 @@ export class DatabaseStorage implements IStorage {
   
   async getResistanceTrends(filters?: Partial<FilterState>): Promise<ResistanceTrend[]> {
     try {
-      let query = `
-        SELECT 
-          TO_CHAR(sample_date, 'YYYY-MM') as month,
-          bacteria_id,
-          SUM(total_samples) as total_samples,
-          SUM(resistant_samples) as resistant_samples
-        FROM resistance_data
-      `;
+      const data = await this.getResistanceData(filters);
+      const bacteriaList = await this.getBacteria();
       
-      const params: any[] = [];
+      // Group data by month and bacteria
+      const groupedData = new Map<string, Map<number, { total: number, resistant: number }>>();
       
-      if (filters) {
-        const conditions: string[] = [];
+      for (const item of data) {
+        const date = new Date(item.sampleDate);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         
-        if (filters.bacteriaId) {
-          conditions.push(`bacteria_id = $${params.length + 1}`);
-          params.push(filters.bacteriaId);
+        if (!groupedData.has(monthKey)) {
+          groupedData.set(monthKey, new Map());
         }
         
-        if (filters.antibioticId) {
-          conditions.push(`antibiotic_id = $${params.length + 1}`);
-          params.push(filters.antibioticId);
+        const bacteriaMap = groupedData.get(monthKey)!;
+        
+        if (!bacteriaMap.has(item.bacteriaId)) {
+          bacteriaMap.set(item.bacteriaId, { total: 0, resistant: 0 });
         }
         
-        if (filters.regionId) {
-          conditions.push(`region_id = $${params.length + 1}`);
-          params.push(filters.regionId);
-        }
+        const stats = bacteriaMap.get(item.bacteriaId)!;
+        stats.total += item.totalSamples;
+        stats.resistant += item.resistantSamples;
+      }
+      
+      // Convert to array of trends
+      const trends: ResistanceTrend[] = [];
+      
+      const sortedMonths = Array.from(groupedData.keys()).sort();
+      
+      for (const month of sortedMonths) {
+        const bacteriaMap = groupedData.get(month)!;
         
-        if (filters.fromDate && filters.toDate) {
-          conditions.push(`sample_date >= $${params.length + 1} AND sample_date <= $${params.length + 2}`);
-          params.push(filters.fromDate);
-          params.push(filters.toDate);
-        }
-        
-        if (conditions.length > 0) {
-          query += ' WHERE ' + conditions.join(' AND ');
+        for (const [bacteriaId, stats] of bacteriaMap.entries()) {
+          const bacteria = bacteriaList.find(b => b.id === bacteriaId);
+          
+          if (bacteria) {
+            const resistanceRate = stats.total > 0 ? (stats.resistant / stats.total) : 0;
+            
+            trends.push({
+              month,
+              bacteriaId,
+              bacteriaName: bacteria.name,
+              resistanceRate,
+            });
+          }
         }
       }
       
-      query += ' GROUP BY month, bacteria_id ORDER BY month';
-      
-      const result = await db.query(query, params);
-      
-      // Get bacteria names
-      const bacteriaMap = new Map<number, string>();
-      const bacteriaResult = await this.getBacteria();
-      
-      for (const bacterium of bacteriaResult) {
-        bacteriaMap.set(bacterium.id, bacterium.name);
-      }
-      
-      // Create trends
-      return result.rows.map(row => ({
-        month: row.month,
-        bacteriaId: row.bacteria_id,
-        bacteriaName: bacteriaMap.get(row.bacteria_id) || `Bacteria ${row.bacteria_id}`,
-        resistanceRate: parseInt(row.resistant_samples) / parseInt(row.total_samples)
-      }));
+      return trends;
     } catch (error) {
       console.error('Error getting resistance trends:', error);
       return [];
@@ -668,66 +378,51 @@ export class DatabaseStorage implements IStorage {
   
   async getAntibioticEffectiveness(filters?: Partial<FilterState>): Promise<AntibioticEffectiveness[]> {
     try {
-      let query = `
-        SELECT 
-          a.id,
-          a.name,
-          SUM(rd.total_samples) as total_samples,
-          SUM(rd.resistant_samples) as resistant_samples,
-          ARRAY_AGG(DISTINCT r.name) as regions
-        FROM resistance_data rd
-        JOIN antibiotics a ON rd.antibiotic_id = a.id
-        JOIN regions r ON rd.region_id = r.id
-      `;
+      const data = await this.getResistanceData(filters);
+      const antibioticsList = await this.getAntibiotics();
+      const regionsList = await this.getRegions();
       
-      const params: any[] = [];
+      // Group data by antibiotic
+      const antibioticStats = new Map<number, { total: number, resistant: number, regions: Set<number> }>();
       
-      if (filters) {
-        const conditions: string[] = [];
-        
-        if (filters.bacteriaId) {
-          conditions.push(`rd.bacteria_id = $${params.length + 1}`);
-          params.push(filters.bacteriaId);
+      for (const item of data) {
+        if (!antibioticStats.has(item.antibioticId)) {
+          antibioticStats.set(item.antibioticId, { total: 0, resistant: 0, regions: new Set() });
         }
         
-        if (filters.antibioticId) {
-          conditions.push(`rd.antibiotic_id = $${params.length + 1}`);
-          params.push(filters.antibioticId);
-        }
+        const stats = antibioticStats.get(item.antibioticId)!;
+        stats.total += item.totalSamples;
+        stats.resistant += item.resistantSamples;
+        stats.regions.add(item.regionId);
+      }
+      
+      // Convert to array of effectiveness
+      const effectiveness: AntibioticEffectiveness[] = [];
+      
+      for (const [antibioticId, stats] of antibioticStats.entries()) {
+        const antibiotic = antibioticsList.find(a => a.id === antibioticId);
         
-        if (filters.regionId) {
-          conditions.push(`rd.region_id = $${params.length + 1}`);
-          params.push(filters.regionId);
-        }
-        
-        if (filters.fromDate && filters.toDate) {
-          conditions.push(`rd.sample_date >= $${params.length + 1} AND rd.sample_date <= $${params.length + 2}`);
-          params.push(filters.fromDate);
-          params.push(filters.toDate);
-        }
-        
-        if (conditions.length > 0) {
-          query += ' WHERE ' + conditions.join(' AND ');
+        if (antibiotic) {
+          const effectivenessRate = stats.total > 0 ? (1 - (stats.resistant / stats.total)) : 0;
+          
+          const regionNames = Array.from(stats.regions).map(regionId => {
+            const region = regionsList.find(r => r.id === regionId);
+            return region ? region.name : "Unknown";
+          });
+          
+          effectiveness.push({
+            id: antibioticId,
+            name: antibiotic.name,
+            effectiveness: effectivenessRate,
+            regions: regionNames,
+          });
         }
       }
       
-      query += ' GROUP BY a.id, a.name';
+      // Sort by effectiveness (descending)
+      effectiveness.sort((a, b) => b.effectiveness - a.effectiveness);
       
-      const result = await db.query(query, params);
-      
-      return result.rows.map(row => {
-        const totalSamples = parseInt(row.total_samples);
-        const resistantSamples = parseInt(row.resistant_samples);
-        // Calculate effectiveness as (1 - resistance rate)
-        const effectiveness = 1 - (resistantSamples / totalSamples);
-        
-        return {
-          id: row.id,
-          name: row.name,
-          effectiveness,
-          regions: row.regions
-        };
-      }).sort((a, b) => b.effectiveness - a.effectiveness);
+      return effectiveness;
     } catch (error) {
       console.error('Error getting antibiotic effectiveness:', error);
       return [];
